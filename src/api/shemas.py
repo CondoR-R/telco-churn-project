@@ -1,6 +1,7 @@
-import pydantic
 import enum
 import typing
+
+import pydantic
 
 from src.constants import DEPENDED_FEATURES
 

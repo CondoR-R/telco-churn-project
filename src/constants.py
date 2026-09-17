@@ -6,3 +6,5 @@ DEPENDED_FEATURES = [
     'StreamingTV',
     'StreamingMovies',
 ]
+
+MODEL_PATH='models/churn_model.pkl'
