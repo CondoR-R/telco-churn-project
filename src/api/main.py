@@ -29,7 +29,7 @@ def predict(
     will_churn = bool(churn_probability >= artifact['threshold'])
 
     return ChurnPredictionResponse(
-        churn_probability=predict_proba,
-        will_churn=predict,
+        churn_probability=churn_probability,
+        will_churn=will_churn,
         threshold_used=artifact['threshold']
     )
