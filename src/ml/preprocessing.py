@@ -1,13 +1,6 @@
 import pandas as pd
 
-DEPENDED_FEATURES = [
-    'OnlineSecurity', 
-    'OnlineBackup', 
-    'DeviceProtection', 
-    'TechSupport', 
-    'StreamingTV', 
-    'StreamingMovies'
-]
+from src.constants import DEPENDED_FEATURES
 
 class InvalidClientDataError(ValueError):
     pass
@@ -97,7 +90,11 @@ def delete_features(raw_df: pd.DataFrame) -> pd.DataFrame:
     Удаляет признаки, не учавствующие в предсказании (gender, 
     PhoneService, MultipleLines и customerID)
     '''
-    return raw_df.drop(['PhoneService', 'MultipleLines', 'gender', 'customerID'], axis=1)
+    return raw_df.drop(
+        ['PhoneService', 'MultipleLines', 'gender', 'customerID'],
+        axis=1, 
+        errors='ignore'
+    )
 
 
 def alignment_cols(df: pd.DataFrame, cols: list[str]) -> pd.DataFrame:
