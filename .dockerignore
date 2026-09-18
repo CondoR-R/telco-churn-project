@@ -1,7 +1,14 @@
+.venv/
+notebooks/
+.git/ 
 __pycache__/
 .pytest_cache
 *.pyc
-.venv
 data/raw/
 data/processed/
 .ipynb_checkpoints/
+tests/
+README.md
+.dockerignore
+Dockerfile
+
