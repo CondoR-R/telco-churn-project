@@ -149,6 +149,6 @@ pytest
 
 Ноутбуки выполняются по порядку: [`01_eda`](./notebooks//01_eda.ipynb) → [`02_feature_engineering`](./notebooks/02_feature_engineering.ipynb) → [`03_modeling`](./notebooks/03_modeling.ipynb). Финальный артефакт (pipeline + порог + список признаков) сохраняется в [`models/churn_model.pkl`](./models/churn_model.pkl).
 
-# Лицензия
+## Лицензия
 
 MIT License. Подробнее см. в файле [LICENSE](./LICENSE).
