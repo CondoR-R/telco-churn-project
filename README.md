@@ -1,6 +1,11 @@
 # Telco Customer Churn — прогноз оттока клиентов
 
-Модель машинного обучения для прогнозирования оттока клиентов телеком-компании, с полным циклом от анализа данных до готового к использованию pipeline.  
+ML-сервис для прогнозирования оттока клиентов телеком-компании: полный цикл
+от анализа данных до задеплоенного в Docker FastAPI-приложения.
+
+## Стек
+
+Python · pandas · scikit-learn · FastAPI · pydantic · pytest · Docker
 
 ## Датасет
 
@@ -12,16 +17,31 @@
 telco-churn-project/
 ├── data/
 │   ├── raw/                          # исходный CSV
-│   └── processed/                    # train/validation/test после feature engineering
+│   └── processed/                    # train/test после feature engineering
 ├── notebooks/
 │   ├── 01_eda.ipynb                  # разведочный анализ данных
 │   ├── 02_feature_engineering.ipynb
 │   └── 03_modeling.ipynb             # обучение, подбор гиперпараметров, оценка
 ├── models/
-│   └── churn_model.pkl               # финальный pipeline (предобработка + модель)
-├── src/                              # (в разработке) FastAPI-сервис
-├── tests/                            # (в разработке)
-└── README.md
+│   └── churn_model.pkl               # финальный pipeline + threshold + feature_columns
+├── src/
+│   ├── constants.py                  # общие константы (DEPENDED_FEATURES, MODEL_PATH)
+│   ├── ml/
+│   │   └── preprocessing.py          # feature engineering для инференса
+│   └── api/
+│       ├── main.py                   # FastAPI-приложение, эндпоинт /predict
+│       ├── dependencies.py           # загрузка модели при старте (lifespan)
+│       └── shemas.py                 # pydantic-схемы запроса/ответа
+├── tests/
+│   ├── test_preprocessing.py
+│   └── test_api.py
+├── .dockerignore
+├── .gitignore
+├── Dockerfile
+├── LICENSE
+├── pypeoject.toml
+├── README.md
+└── requirements.txt
 ```
 
 ## Ключевые находки EDA
@@ -42,10 +62,8 @@ telco-churn-project/
 
 - Приведение `TotalCharges` к числовому типу, заполнение пропусков нулём.
 - Схлопывание "No internet service" в "No" для признаков, зависящих от `InternetService`.
-- Бинаризация `PaymentMethod` → `Electronic_check` (0/1), так как остальные способы
-  оплаты показали схожую вероятность оттока.
-- Удаление слабо влияющих на таргет признаков: `gender` (этические соображения +
-  низкая значимость), `PhoneService`, `MultipleLines`.
+- Бинаризация `PaymentMethod` → `Electronic_check` (0/1), так как остальные способы оплаты показали схожую вероятность оттока.
+- Удаление слабо влияющих на таргет признаков: `gender` (этические соображения + низкая значимость), `PhoneService`, `MultipleLines`.
 - Разбиение на train/test (стратифицированное, с сохранением пропорции классов).
 
 ## Модель
@@ -81,66 +99,56 @@ Confusion matrix:
 ценой заметной доли ложных срабатываний (precision 42.4%) — осознанный компромисс,
 отражающий приоритет "не пропустить уходящего клиента" над "не побеспокоить лояльного".
 
-## Как запустить (текущее состояние)
+## API
 
-1. Установить датасет (csv) с [Kaggle](https://www.kaggle.com/datasets/blastchar/telco-customer-churn) и разместить егов `data/raw`
+Один эндпоинт `POST /predict`, принимающий сырые данные клиента (в формате
+исходного датасета) и возвращающий вероятность оттока, финальное решение и
+использованный порог классификации. Полная интерактивная документация — на
+`/docs` (Swagger UI) после запуска сервиса.
 
-2. Установить виртуальное окружения и необходимые зависимости:
+Входные данные валидируются на двух уровнях: pydantic-схема (типы, допустимые
+значения категорий, согласованность полей — например, зависимые от интернета
+признаки не могут быть "Yes" при `InternetService=No`) и доменная валидация
+внутри `preprocessing.py` (например, `TotalCharges` не может быть пустым при
+ненулевом `tenure`).
+
+Скриншот `/docs`:
+![Скриншот swagger UI](./images/swagger.png)
+
+## Запуск
+
+### Через Docker (рекомендуемый способ)
+
+```bash
+docker build -t telco-churn-api .
+docker run -p 8000:8000 telco-churn-api
+```
+
+Сервис будет доступен на `http://127.0.0.1:8000/docs`.
+
+### Локально, для разработки
+
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-jupyter notebook notebooks/
+
+uvicorn src.api.main:app --reload
 ```
 
-Ноутбуки выполняются по порядку: `01_eda` → `02_feature_engineering` → `03_modeling`.
-Финальный pipeline сохраняется в `models/churn_model.pkl`.
+### Тесты
 
-## В разработке
-
-- [ ] FastAPI-сервис (`/predict`) поверх сохранённого pipeline
-- [ ] Логирование запросов в SQLite через SQLAlchemy
-- [ ] Тесты (pytest) — валидация API и регрессия качества модели
-- [ ] Docker — контейнеризация сервиса
-
-## Планируемая струкутра
-
-```text
-telco-churn-project/
-│
-├── data/
-│   ├── raw/                    # исходный CSV с Kaggle, не изменяется вручную
-│   └── processed/              # результат предобработки (train/test выборки)
-│
-├── notebooks/
-│   ├── 01_eda.ipynb            # весь анализ из плана EDA
-│   ├── 02_feature_engineering.ipynb
-│   └── 03_modeling.ipynb       # сравнение моделей, подбор гиперпараметров
-│
-├── src/
-│   ├── ml/
-│   │   ├── preprocessing.py    # пайплайн очистки + фичей (используется и в notebooks, и в сервисе)
-│   │   ├── train.py            # обучение финальной модели, сохранение артефакта
-│   │   └── model.py            # обёртка загрузки модели для инференса
-│   │
-│   └── api/
-│       ├── main.py             # точка входа FastAPI, роуты
-│       ├── schemas.py          # pydantic-модели запроса/ответа
-│       └── dependencies.py     # инициализация модели, БД-сессии и т.п.
-
-│
-├── models/
-│   └── churn_model.pkl         # сериализованный финальный pipeline (предобработка + модель)
-│
-├── tests/
-│   ├── test_api.py             # тесты эндпоинтов (валидация, формат ответа)
-│   ├── test_model.py           # тест качества модели на фиксированных примерах
-│   └── test_preprocessing.py   # тесты корректности предобработки данных
-│
-├── Dockerfile                  # сборка образа сервиса
-├── .dockerignore
-├── requirements.txt            # или pyproject.toml, если предпочитаете poetry
-├── .env.example                # пример переменных окружения (путь к БД, к модели и т.п.)
-├── .gitignore
-└── README.md                   # описание проекта, как запустить, метрики модели
+```bash
+pytest
 ```
+
+Покрывают предобработку данных ([`test_preprocessing.py`](./tests//test_preprocessing.py)) и API целиком,
+включая валидацию pydantic-схемы и кросс-полевые проверки ([`test_api.py`](./tests/test_api.py)).
+
+### Воспроизведение обучения модели
+
+Ноутбуки выполняются по порядку: [`01_eda`](./notebooks//01_eda.ipynb) → [`02_feature_engineering`](./notebooks/02_feature_engineering.ipynb) → [`03_modeling`](./notebooks/03_modeling.ipynb). Финальный артефакт (pipeline + порог + список признаков) сохраняется в [`models/churn_model.pkl`](./models/churn_model.pkl).
+
+# Лицензия
+
+MIT License. Подробнее см. в файле [LICENSE](./LICENSE).
